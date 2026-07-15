@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>emojiseed — bip39 style emoji mnemonics</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans px-4 py-8">
+<div class="mx-auto max-w-xl">
+  <header class="mb-7 text-center">
+    <h1 class="mb-1 text-3xl font-bold tracking-tight">🌱 emojiseed</h1>
+    <p class="text-gray-500 dark:text-gray-400">BIP39 style mnemonics, but with emojis — 4096 emojis, 12 bits each.</p>
+  </header>
+
+  <div class="mb-4 flex gap-2" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="gen"
+      class="flex-1 rounded-xl border border-gray-200 bg-white py-2.5 text-sm font-semibold text-gray-500 transition aria-selected:border-indigo-600 aria-selected:bg-indigo-600 aria-selected:text-white dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:aria-selected:border-indigo-500 dark:aria-selected:bg-indigo-500">Generate</button>
+    <button role="tab" aria-selected="false" data-tab="encode"
+      class="flex-1 rounded-xl border border-gray-200 bg-white py-2.5 text-sm font-semibold text-gray-500 transition aria-selected:border-indigo-600 aria-selected:bg-indigo-600 aria-selected:text-white dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:aria-selected:border-indigo-500 dark:aria-selected:bg-indigo-500">Encode</button>
+    <button role="tab" aria-selected="false" data-tab="decode"
+      class="flex-1 rounded-xl border border-gray-200 bg-white py-2.5 text-sm font-semibold text-gray-500 transition aria-selected:border-indigo-600 aria-selected:bg-indigo-600 aria-selected:text-white dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:aria-selected:border-indigo-500 dark:aria-selected:bg-indigo-500">Decode</button>
+  </div>
+
+  <!-- generate -->
+  <section class="mb-4 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800" data-panel="gen">
+    <div class="flex flex-wrap items-center gap-2">
+      <label class="mb-0 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Entropy size</label>
+      <select id="gen-bits" class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900">
+        <option value="128">128 bit — 11 emojis</option>
+        <option value="256" selected>256 bit — 22 emojis (full key)</option>
+      </select>
+      <button class="btn rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500" id="gen-run">Generate 🎲</button>
+    </div>
+    <div class="mt-4">
+      <div class="min-h-[2.5rem] rounded-xl bg-gray-100 p-3 text-3xl leading-relaxed tracking-wide break-words dark:bg-gray-900" id="gen-emojis"></div>
+      <div class="mt-2.5 rounded-xl bg-gray-100 px-3 py-2.5 font-mono text-sm break-all dark:bg-gray-900" id="gen-hex"></div>
+      <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">Randomness comes from your browser's <code>crypto.getRandomValues</code>. Nothing leaves this page.</div>
+    </div>
+  </section>
+
+  <!-- encode -->
+  <section class="mb-4 hidden rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800" data-panel="encode">
+    <label class="mb-1.5 block text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400" for="enc-hex">Private key hex (16 or 32 bytes)</label>
+    <input type="text" id="enc-hex" placeholder="0123456789abcdef0123456789abcdef" spellcheck="false"
+      class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 font-inherit dark:border-gray-700 dark:bg-gray-900">
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <button class="btn rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500" id="enc-run">Encode →</button>
+      <button class="btn rounded-xl border border-indigo-600 px-4 py-2.5 text-sm font-semibold text-indigo-600 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 dark:border-indigo-400 dark:text-indigo-400" id="enc-sample">Sample</button>
+    </div>
+    <div class="mt-4">
+      <div class="min-h-[2.5rem] rounded-xl bg-gray-100 p-3 text-3xl leading-relaxed tracking-wide break-words dark:bg-gray-900" id="enc-emojis"></div>
+      <div class="mt-3 text-sm font-semibold" id="enc-status"></div>
+    </div>
+  </section>
+
+  <!-- decode -->
+  <section class="mb-4 hidden rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800" data-panel="decode">
+    <label class="mb-1.5 block text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400" for="dec-emojis">Emoji phrase (11 or 22 emojis)</label>
+    <textarea id="dec-emojis" placeholder="😀 🚀 …" spellcheck="false"
+      class="min-h-[4.5rem] w-full resize-y rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 font-inherit dark:border-gray-700 dark:bg-gray-900"></textarea>
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <button class="btn rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500" id="dec-run">← Decode</button>
+    </div>
+    <div class="mt-4">
+      <div class="rounded-xl bg-gray-100 px-3 py-2.5 font-mono text-sm break-all dark:bg-gray-900" id="dec-hex"></div>
+      <div class="mt-3 text-sm font-semibold" id="dec-status"></div>
+    </div>
+  </section>
+
+  <footer class="mt-6 space-y-1 text-center text-sm text-gray-500 dark:text-gray-400">
+    <p>
+      Runs the exact same C core as the CLI, compiled to WebAssembly.
+      Everything is computed locally in your browser.
+    </p>
+    <p>
+      <a class="text-indigo-600 hover:underline dark:text-indigo-400" href="https://github.com/tuna4ll/emojiseed" target="_blank" rel="noopener">GitHub</a>
+      ·
+      <a class="text-indigo-600 hover:underline dark:text-indigo-400" href="https://tunakilic.com" target="_blank" rel="noopener">tunakilic.com</a>
+    </p>
+    <p>&copy; 2026 Tuna Kılıç</p>
+  </footer>
+</div>
+
+<script src="wordlist.js"></script>
+<script src="emojiseed.js"></script>
+<script>
+(function () {
+  const MAX_WORDS = 22;
+  let api = null;                 // { encode, decode } once wasm is ready
+  let Module = null;
+
+  const STATUS_OK = "mt-3 text-sm font-semibold text-emerald-600 dark:text-emerald-400";
+  const STATUS_BAD = "mt-3 text-sm font-semibold text-red-600 dark:text-red-400";
+
+  // index lookup with NFC normalization so pasted emojis match regardless
+  // of how the source normalized its codepoints
+  const wordIndex = new Map();
+  if (typeof EMOJISEED_WORDS !== "undefined") {
+    EMOJISEED_WORDS.forEach((w, i) => wordIndex.set(w.normalize("NFC"), i));
+  }
+
+  function hexToBytes(hex) {
+    hex = hex.trim().toLowerCase().replace(/\s+/g, "");
+    if (!/^[0-9a-f]*$/.test(hex) || hex.length % 2 !== 0) return null;
+    const n = hex.length / 2;
+    if (n !== 16 && n !== 32) return null;
+    const out = new Uint8Array(n);
+    for (let i = 0; i < n; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+    return out;
+  }
+  function bytesToHex(bytes) {
+    return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // entropy bytes -> array of emoji strings
+  function encode(entBytes) {
+    const entPtr = Module._malloc(entBytes.length);
+    const idxPtr = Module._malloc(MAX_WORDS * 4);
+    Module.HEAPU8.set(entBytes, entPtr);
+    const nwords = Module._es_encode(entPtr, entBytes.length, idxPtr);
+    const emojis = [];
+    if (nwords > 0) {
+      for (let i = 0; i < nwords; i++) {
+        const idx = Module.HEAP32[(idxPtr >> 2) + i];
+        emojis.push(EMOJISEED_WORDS[idx]);
+      }
+    }
+    Module._free(entPtr); Module._free(idxPtr);
+    return nwords > 0 ? emojis : null;
+  }
+
+  // array of indices -> { hex, ok } or null on bad length
+  function decode(indices) {
+    const n = indices.length;
+    const idxPtr = Module._malloc(n * 4);
+    const entPtr = Module._malloc(32);
+    const okPtr  = Module._malloc(4);
+    for (let i = 0; i < n; i++) Module.HEAP32[(idxPtr >> 2) + i] = indices[i];
+    const entLen = Module._es_decode(idxPtr, n, entPtr, okPtr);
+    let result = null;
+    if (entLen > 0) {
+      const bytes = Module.HEAPU8.slice(entPtr, entPtr + entLen);
+      const ok = Module.HEAP32[okPtr >> 2] === 1;
+      result = { hex: bytesToHex(bytes), ok };
+    }
+    Module._free(idxPtr); Module._free(entPtr); Module._free(okPtr);
+    return result;
+  }
+
+  // ---- ui ----
+  const $ = s => document.querySelector(s);
+
+  function setBusy(busy) {
+    document.querySelectorAll(".btn").forEach(b => b.disabled = busy);
+  }
+
+  // tabs
+  document.querySelectorAll('[role=tab]').forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll('[role=tab]').forEach(t =>
+        t.setAttribute("aria-selected", t === tab ? "true" : "false"));
+      const name = tab.dataset.tab;
+      document.querySelectorAll('[data-panel]').forEach(p =>
+        p.classList.toggle("hidden", p.dataset.panel !== name));
+    });
+  });
+
+  // generate
+  $("#gen-run").addEventListener("click", () => {
+    const bits = parseInt($("#gen-bits").value, 10);
+    const bytes = new Uint8Array(bits / 8);
+    crypto.getRandomValues(bytes);
+    const emojis = encode(bytes);
+    $("#gen-emojis").textContent = emojis ? emojis.join(" ") : "error";
+    $("#gen-hex").textContent = bytesToHex(bytes);
+  });
+
+  // encode
+  $("#enc-run").addEventListener("click", () => {
+    const bytes = hexToBytes($("#enc-hex").value);
+    const status = $("#enc-status");
+    if (!bytes) {
+      $("#enc-emojis").textContent = "";
+      status.className = STATUS_BAD;
+      status.textContent = "Enter valid hex of 16 or 32 bytes (32 or 64 hex chars).";
+      return;
+    }
+    const emojis = encode(bytes);
+    $("#enc-emojis").textContent = emojis.join(" ");
+    status.className = STATUS_OK;
+    status.textContent = `${emojis.length} emojis · ${bytes.length * 8} bit`;
+  });
+  $("#enc-sample").addEventListener("click", () => {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    $("#enc-hex").value = bytesToHex(bytes);
+    $("#enc-run").click();
+  });
+
+  // decode
+  $("#dec-run").addEventListener("click", () => {
+    const tokens = $("#dec-emojis").value.trim().split(/\s+/).filter(Boolean);
+    const status = $("#dec-status");
+    const hexEl = $("#dec-hex");
+    if (tokens.length === 0) { hexEl.textContent = ""; status.textContent = ""; return; }
+    const indices = [];
+    for (const t of tokens) {
+      const idx = wordIndex.get(t.normalize("NFC"));
+      if (idx === undefined) {
+        hexEl.textContent = "";
+        status.className = STATUS_BAD;
+        status.textContent = `Not in wordlist: ${t}`;
+        return;
+      }
+      indices.push(idx);
+    }
+    if (indices.length !== 11 && indices.length !== 22) {
+      hexEl.textContent = "";
+      status.className = STATUS_BAD;
+      status.textContent = `Expected 11 or 22 emojis, got ${indices.length}.`;
+      return;
+    }
+    const res = decode(indices);
+    hexEl.textContent = res.hex;
+    status.className = res.ok ? STATUS_OK : STATUS_BAD;
+    status.textContent = res.ok
+      ? `Checksum valid · ${res.hex.length * 4} bit entropy`
+      : "Checksum INVALID — phrase is corrupt or mistyped";
+  });
+
+  // boot the wasm module then enable the ui
+  setBusy(true);
+  EmojiseedModule().then(m => {
+    Module = m;
+    setBusy(false);
+    $("#gen-run").click();       // show something immediately
+  }).catch(err => {
+    document.querySelector(".mx-auto").insertAdjacentHTML("afterbegin",
+      `<div class="mb-4 rounded-2xl border border-gray-200 bg-white p-5 text-red-600 dark:border-gray-700 dark:bg-gray-800 dark:text-red-400">Failed to load WebAssembly module. ` +
+      `Run <code>make wasm</code> to build <code>web/emojiseed.js</code>.</div>`);
+    console.error(err);
+  });
+})();
+</script>
+</body>
+</html>

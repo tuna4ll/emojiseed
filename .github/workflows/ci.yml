@@ -41,3 +41,18 @@ jobs:
         run: |
           make clean
           make test CC=gcc CFLAGS="-std=c11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-omit-frame-pointer"
+
+  wasm:
+    name: build wasm demo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+
+      - name: Build the WebAssembly demo
+        run: make wasm
+
+      - name: Check outputs exist
+        run: test -f web/emojiseed.js && test -f web/wordlist.js

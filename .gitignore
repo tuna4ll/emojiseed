@@ -1,4 +1,10 @@
 # build artifacts
 /emojiseed
 /tests/test_sha256
+/tests/test_core
 *.o
+
+# generated web demo assets built by web/build.sh (make wasm)
+/web/emojiseed.js
+/web/wordlist.js
+/web/wordlist.js.cjs

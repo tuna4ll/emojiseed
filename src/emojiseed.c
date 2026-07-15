@@ -24,10 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "sha256.h"
+#include "core.h"
 
-#define WORDLIST_SIZE 4096
-#define BITS_PER_WORD 12          /* log2 of 4096 */
+#define WORDLIST_SIZE EMOJISEED_WORDLIST_SIZE
 
 /* copy a string since strdup is not in plain c11 */
 static char *dup_str(const char *s) {
@@ -94,15 +93,6 @@ static int wordlist_index(const wordlist_t *wl, const char *token) {
     return -1;
 }
 
-/* bit helpers msb first over a byte buffer */
-static int get_bit(const uint8_t *buf, size_t i) {
-    return (buf[i / 8] >> (7 - (i % 8))) & 1;
-}
-static void set_bit(uint8_t *buf, size_t i, int v) {
-    if (v) buf[i / 8] |= (uint8_t)(1u << (7 - (i % 8)));
-    else   buf[i / 8] &= (uint8_t)~(1u << (7 - (i % 8)));
-}
-
 /* hex helpers */
 static int hex_val(char c) {
     if (c >= '0' && c <= '9') return c - '0';
@@ -133,33 +123,6 @@ static void bytes_to_hex(const uint8_t *b, size_t n, char *out) {
     out[n * 2] = '\0';
 }
 
-/* core entropy bytes to emoji indices */
-/* returns number of emojis written to idx or -1 on bad ENT */
-static int entropy_to_indices(const uint8_t *ent, size_t ent_len, int *idx) {
-    size_t ent_bits = ent_len * 8;
-    if (ent_bits != 128 && ent_bits != 256) return -1;
-    size_t cs_bits = ent_bits / 32;                 /* 4 or 8 */
-    size_t total   = ent_bits + cs_bits;            /* 132 or 264 */
-    if (total % BITS_PER_WORD != 0) return -1;
-
-    uint8_t hash[SHA256_DIGEST_SIZE];
-    sha256(ent, ent_len, hash);
-
-    uint8_t bits[34] = {0};                          /* ceil of 264 over 8 is 33 */
-    memcpy(bits, ent, ent_len);                      /* entropy fills whole bytes */
-    for (size_t i = 0; i < cs_bits; i++)             /* append leading hash bits */
-        set_bit(bits, ent_bits + i, get_bit(hash, i));
-
-    int nwords = (int)(total / BITS_PER_WORD);
-    for (int w = 0; w < nwords; w++) {
-        int v = 0;
-        for (int b = 0; b < BITS_PER_WORD; b++)
-            v = (v << 1) | get_bit(bits, (size_t)w * BITS_PER_WORD + b);
-        idx[w] = v;
-    }
-    return nwords;
-}
-
 /* commands */
 static void print_emojis(const wordlist_t *wl, const int *idx, int n) {
     for (int i = 0; i < n; i++)
@@ -177,8 +140,8 @@ static int cmd_encode(const wordlist_t *wl, const char *hex) {
         fprintf(stderr, "error entropy must be 16 bytes 128 bit or 32 bytes 256 bit but got %d bytes\n", n);
         return 1;
     }
-    int idx[22];
-    int nwords = entropy_to_indices(ent, (size_t)n, idx);
+    int idx[EMOJISEED_MAX_WORDS];
+    int nwords = emojiseed_encode(ent, (size_t)n, idx);
     if (nwords < 0) { fprintf(stderr, "error unsupported entropy size\n"); return 1; }
     print_emojis(wl, idx, nwords);
     return 0;
@@ -197,8 +160,8 @@ static int cmd_gen(const wordlist_t *wl, int bits) {
     }
     char hex[65];
     bytes_to_hex(ent, ent_len, hex);
-    int idx[22];
-    int nwords = entropy_to_indices(ent, ent_len, idx);
+    int idx[EMOJISEED_MAX_WORDS];
+    int nwords = emojiseed_encode(ent, ent_len, idx);
     fprintf(stderr, "entropy %d bit %s\n", bits, hex);
     print_emojis(wl, idx, nwords);
     return 0;
@@ -227,35 +190,20 @@ static int cmd_decode(const wordlist_t *wl, const char *phrase) {
         fprintf(stderr, "error expected 11 or 22 emojis but got %d\n", nwords);
         return 1;
     }
-    size_t total   = (size_t)nwords * BITS_PER_WORD;   /* 132 or 264 */
-    size_t ent_bits = total * 32 / 33;                 /* 128 or 256 */
-    size_t cs_bits  = ent_bits / 32;
-    if (ent_bits + cs_bits != total) {
-        fprintf(stderr, "error bit length mismatch\n"); return 1;
+
+    uint8_t ent[EMOJISEED_MAX_ENT];
+    size_t ent_len = 0;
+    int ok = 0;
+    if (emojiseed_decode(idx, nwords, ent, &ent_len, &ok) != 0) {
+        fprintf(stderr, "error bit length mismatch\n");
+        return 1;
     }
-
-    uint8_t bits[34] = {0};
-    for (int w = 0; w < nwords; w++)
-        for (int b = 0; b < BITS_PER_WORD; b++)
-            set_bit(bits, (size_t)w * BITS_PER_WORD + b,
-                    (idx[w] >> (BITS_PER_WORD - 1 - b)) & 1);
-
-    size_t ent_len = ent_bits / 8;
-    uint8_t ent[32];
-    memcpy(ent, bits, ent_len);
-
-    /* verify checksum */
-    uint8_t hash[SHA256_DIGEST_SIZE];
-    sha256(ent, ent_len, hash);
-    int ok = 1;
-    for (size_t i = 0; i < cs_bits; i++)
-        if (get_bit(bits, ent_bits + i) != get_bit(hash, i)) { ok = 0; break; }
 
     char hex[65];
     bytes_to_hex(ent, ent_len, hex);
     printf("%s\n", hex);
     fprintf(stderr, "checksum %s %zu bit entropy\n",
-            ok ? "ok" : "invalid", ent_bits);
+            ok ? "ok" : "invalid", ent_len * 8);
     return ok ? 0 : 2;
 }
 

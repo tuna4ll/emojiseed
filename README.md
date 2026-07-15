@@ -37,3 +37,35 @@ make
 
 `data/emojis.txt` has exactly 4096 emojis, one per line, order matters. Override
 with `--wordlist <path>` or `EMOJISEED_WORDLIST`.
+
+## Web demo
+
+The encode/decode core lives in `src/core.c` with no I/O, so the browser demo
+compiles the exact same code to WebAssembly — no logic is reimplemented in
+JavaScript. Randomness in the browser comes from `crypto.getRandomValues`, and
+everything runs locally; nothing leaves the page.
+
+```sh
+make wasm            # needs emscripten (emcc), writes web/emojiseed.js + web/wordlist.js
+# then open web/index.html in a browser
+```
+
+CI builds the demo on every push and deploys `web/` to GitHub Pages.
+
+## Layout
+
+| Path                  | What                                             |
+|-----------------------|--------------------------------------------------|
+| `src/core.c`          | pure entropy ↔ emoji-index math (shared)         |
+| `src/sha256.c`        | SHA-256 for the checksum                         |
+| `src/emojiseed.c`     | CLI: args, wordlist, hex, `/dev/urandom`         |
+| `web/emojiseed_wasm.c`| WebAssembly bindings over the core               |
+| `tests/`              | unit tests (SHA-256, core) + CLI integration     |
+
+## Tests
+
+```sh
+make test            # unit tests + cli integration tests
+make test-unit       # sha256 and core known-answer / roundtrip tests
+make test-cli        # drives the built binary
+```
