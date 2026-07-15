@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: build and test (${{ matrix.cc }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    env:
+      CC: ${{ matrix.cc }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show compiler version
+        run: $CC --version
+
+      - name: Build
+        run: make
+
+      - name: Unit tests (sha256)
+        run: make test-unit
+
+      - name: Integration tests (cli)
+        run: make test-cli
+
+  sanitizers:
+    name: build and test with sanitizers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test with ASan and UBSan
+        run: |
+          make clean
+          make test CC=gcc CFLAGS="-std=c11 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-omit-frame-pointer"

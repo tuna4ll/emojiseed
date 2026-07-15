@@ -1,0 +1,4 @@
+# build artifacts
+/emojiseed
+/tests/test_sha256
+*.o
